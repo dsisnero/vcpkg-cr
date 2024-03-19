@@ -1,0 +1,13 @@
+name: vcpkg-crystal
+version: 0.1.0
+
+authors:
+  - dsisnero <dsisnero@gmail.com>
+
+targets:
+  vcpkg-crystal:
+    main: src/vcpkg-crystal.cr
+
+crystal: '>= 1.11.2'
+
+license: MIT
