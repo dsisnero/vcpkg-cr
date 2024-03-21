@@ -102,5 +102,4 @@ macro try!(result)
   else
     %res.unwrap
   end
-  {% debug %}
 end

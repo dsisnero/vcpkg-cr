@@ -138,7 +138,7 @@ module Vcpkg
         libs = required_lib_order
       end
 
-      puts "cargo:warning=vcpkg gave up trying to resolve pkg-config ordering." if required_lib_order != libs
+      puts "crystal:warning=vcpkg gave up trying to resolve pkg-config ordering." if required_lib_order != libs
       required_lib_order
     end
 

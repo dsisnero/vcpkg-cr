@@ -1,18 +1,32 @@
-# vcpkg-crystal
+# vcpkg-cr
 
-TODO: Write a description here
+This is a helper for finding libraries in a [Vcpkg](https://github.com/Microsoft/vcpkg) installation from crystal build scripts. It works similarly to [pkg-config](https://github.com/alexcrichton/pkg-config-rs). It works on Windows (MSVC ABI), Linux and MacOS.
+
+A crystal port of [vcpkg-rs](https://github.com/mcgoo/vcpkg-rs)
 
 ## Installation
 
-TODO: Write installation instructions here
+```yaml
+dependencies:
+  vcpkg:
+    github: dsisnero/vcpkg-cr
+```
+
+...and run `crystal deps` or `shards install`
 
 ## Usage
 
-TODO: Write usage instructions here
+Find the library named `foo` in a [Vcpkg](https://github.com/Microsoft/vcpkg) installation and emit crystal metadata to link it:
+
+```crystal
+// build.rs
+require "vcpkg"
+
+
+    Vcpkg.find_package("foo")
+```
 
 ## Development
-
-TODO: Write development instructions here
 
 ## Contributing
 

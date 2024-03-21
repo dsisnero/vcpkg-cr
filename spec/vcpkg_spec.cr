@@ -138,7 +138,7 @@ describe Vcpkg do
       context "when is_static is true" do
         it "returns error Vcpkg::NotMSVC" do
           ENV["TARGET"] = "x86_64-linux-gnu"
-          ENV["CARGO_CFG_TARGET_FEATURE"] = "crt-static"
+          ENV["CRYSTAL_CFG_TARGET_FEATURE"] = "crt-static"
           result = Vcpkg.detect_target_triplet
           result.ok?.should be_false
           result.unwrap_err.should be_a Vcpkg::NotMSVC
@@ -160,7 +160,7 @@ describe Vcpkg do
       context "when is_static is true" do
         it "returns error Vcpkg::NotMSVC" do
           ENV["TARGET"] = "aarch64-linux-gnu"
-          ENV["CARGO_CFG_TARGET_FEATURE"] = "crt-static"
+          ENV["CRYSTAL_CFG_TARGET_FEATURE"] = "crt-static"
           result = Vcpkg.detect_target_triplet
           result.ok?.should be_false
           result.unwrap_err.should be_a Vcpkg::NotMSVC
@@ -191,7 +191,7 @@ describe Vcpkg do
       context "when is_static is true" do
         it "returns error Vcpkg::NotMSVC" do
           ENV["TARGET"] = "x86_64-linux-gnu"
-          ENV["CARGO_CFG_TARGET_FEATURE"] = "crt-static"
+          ENV["CRYSTAL_CFG_TARGET_FEATURE"] = "crt-static"
           result = Vcpkg.detect_target_triplet
           result.ok?.should be_false
           result.unwrap_err.should be_a Vcpkg::NotMSVC
@@ -239,7 +239,7 @@ describe Vcpkg do
           it "returns x65-windows-static" do
             ENV.clear
             ENV["TARGET"] = "x86_64-pc-windows-msvc"
-            ENV["CARGO_CFG_TARGET_FEATURE"] = "crt-static"
+            ENV["CRYSTAL_CFG_TARGET_FEATURE"] = "crt-static"
             result = Vcpkg.detect_target_triplet
             result.ok?.should be_true
             result = result.unwrap
@@ -251,7 +251,7 @@ describe Vcpkg do
 
         context "is_static is false" do
           ENV["TARGET"] = "x86_64-pc-windows-msvc"
-          ENV["CARGO_CFG_TARGET_FEATURE"] = "non-static"
+          ENV["CRYSTAL_CFG_TARGET_FEATURE"] = "non-static"
           ENV["VCPKGRS_DYNAMIC"] = "on"
           result = Vcpkg.detect_target_triplet
           result.ok?.should be_true

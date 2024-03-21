@@ -7,8 +7,8 @@ module Vcpkg
     property dll_paths = [] of Path
     # Paths to include files
     property include_paths = [] of Path
-    # cargo: metadata lines
-    property cargo_metadata = [] of String
+    # crystal: metadata lines
+    property crystal_metadata = [] of String
     # libraries found are static
     property is_static = false
     # DLLs found
@@ -23,13 +23,6 @@ module Vcpkg
     property vcpkg_triplet = ""
 
     def initialize(@is_static, @vcpkg_triplet)
-    end
-
-    def to_s(io : IO)
-      io << "Library: is_static: #{@is_static}, vcpkg_triplet: #{@vcpkg_triplet}\n"
-      io << "link_paths: #{@link_paths}, dll_paths: #{@dll_paths}, include_paths: #{@include_paths}\n"
-      io << "ports: #{@ports}, found_libs: #{@found_libs}, found_dlls: #{@found_dlls}\n"
-      io << "found_names: #{@found_names}, cargo_metadata: #{@cargo_metadata}"
     end
   end
 end

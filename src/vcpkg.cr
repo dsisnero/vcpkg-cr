@@ -28,6 +28,10 @@ module Vcpkg
     end
   end
 
+  def self.find_package(package : String) : Result
+    Config.new.find_package(package)
+  end
+
   # Find the vcpkg root
   def self.find_vcpkg_root(cfg : Config) : Ok(Path) | Err(VcpkgNotFound)
     # prefer the setting from the use if there is one
@@ -75,7 +79,7 @@ module Vcpkg
 
         if File.exists? try_root
           try_root = try_root.parent
-          cv_cfg = try_root / "downloads" / "cargo-vcpkg.toml"
+          cv_cfg = try_root / "downloads" / "crystal-vcpkg.toml"
           return Ok.new try_root if File.exists? cv_cfg
         end
       end
@@ -101,7 +105,6 @@ module Vcpkg
     vcpkg_root_result = find_vcpkg_root(cfg)
     case vcpkg_root_result
     when Err
-      puts "returning err: typeof(vcpkg_root_result)"
       return vcpkg_root_result
     when Ok
     end
@@ -116,9 +119,6 @@ module Vcpkg
                vcpkg_root / "installed"
              end
            end
-
-    # puts "typeof base after try: #{typeof(base)}"
-    # puts "typeof vcpkg_root after try: #{typeof(vcpkg_root)}"
 
     status_path = base / "vcpkg"
     new_base = base / target_triplet.triplet
@@ -135,13 +135,12 @@ module Vcpkg
       packages_path: packages_path,
       target_triplet: target_triplet
     ))
-    # "puts should get here"
   end
 
   def self.detect_target_triplet
     is_definitely_dynamic = ENV.has_key?("VCPKGRS_DYNAMIC")
     target = ENV.fetch("TARGET", "")
-    is_static = ENV.fetch("CARGO_CFG_TARGET_FEATURE", "").includes?("crt-static")
+    is_static = ENV.fetch("CRYSTAL_CFG_TARGET_FEATURE", "").includes?("crt-static")
 
     if target == "x86_64-apple-darwin"
       return Ok.new(TargetTriplet.new(triplet: "x64-osx", is_static: true, lib_suffix: "a", strip_lib_prefix: true))
@@ -185,6 +184,10 @@ module Vcpkg
         Ok.new(TargetTriplet.new(triplet: "x86-windows-static-md", is_static: true, lib_suffix: "lib", strip_lib_prefix: false))
       end
     end
+  end
+
+  def self.envify(name : String)
+    name.upcase.gsub("-", "_")
   end
 
   def self.load_ports(target : VcpkgTarget) : Hash(String, Port)

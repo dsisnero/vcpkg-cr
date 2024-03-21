@@ -5,7 +5,7 @@ describe Vcpkg::Config do
     it "initializes with default values" do
       config = Vcpkg::Config.new
 
-      config.cargo_metadata.should be_true
+      config.crystal_metadata.should be_true
       config.copy_dlls.should be_true
       config.emit_includes.should be_false
       config.vcpkg_installed_root.should be_nil
@@ -13,10 +13,10 @@ describe Vcpkg::Config do
       config.target.should be_nil
     end
   end
-  it "allows setting and getting cargo_metadata" do
+  it "allows setting and getting crystal_metadata" do
     config = Vcpkg::Config.new
-    config.cargo_metadata = true
-    config.cargo_metadata.should eq(true)
+    config.crystal_metadata = true
+    config.crystal_metadata.should eq(true)
   end
 
   it "allows setting and getting emit_includes" do
@@ -70,7 +70,7 @@ describe Vcpkg::Config do
   end
 
   it "finds the package" do
-    ENV["OUT_DIR"] = (Path.new(__DIR__) / "out").to_s
+    ENV["OUT_DIR"] = OUTDIR.to_s
     config = Vcpkg::Config.new
     result = config.find_package("zlib")
     puts result
