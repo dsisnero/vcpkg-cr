@@ -18,7 +18,6 @@ module Result
   def self.err(error : E) : Err(E)
     Err.new(error)
   end
-
 end
 
 struct Ok(T)
@@ -95,9 +94,8 @@ struct Err(E)
   end
 end
 
-
 macro try!(result)
-       
+
   %res = {{result}}
   if %res.err?
     return %res

@@ -1,0 +1,3 @@
+Requires: zlib
+Requires.private: openssl
+Libs: -L/lib -lssl -lcrypto

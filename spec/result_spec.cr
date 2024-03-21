@@ -2,20 +2,16 @@ require "./spec_helper"
 require "../src/result"
 
 class Example
-
-  def identity( res : Result)
+  def identity(res : Result)
     res
   end
 
-  def test_return_type(res) 
-     res = try!(identity(res))
-     # Ok.new( (res + 5).to_s)
-     Ok.new("hello")
+  def test_return_type(res)
+    res = try!(identity(res))
+    # Ok.new( (res + 5).to_s)
+    Ok.new("hello")
   end
-
 end
-
-  
 
 describe Result do
   describe "variants" do
@@ -96,9 +92,9 @@ describe Result do
 
   describe "try" do
     it "continues if given an Ok" do
-        ex = Example.new
-        result= ex.test_return_type(Ok.new(2))
-        typeof(result).should eq Ok(Int32)
+      ex = Example.new
+      result = ex.test_return_type(Ok.new(2))
+      typeof(result).should eq Ok(Int32)
     end
 
     it "returns Err on err" do
@@ -107,18 +103,16 @@ describe Result do
       typeof(result).should eq(Err(String))
     end
   end
-        
-    
 
   describe "unwrap" do
     it "returns the wrapped value if Ok" do
-    res = Ok.new(42)
-    res.unwrap.should eq 42
+      res = Ok.new(42)
+      res.unwrap.should eq 42
     end
 
     it "raises if it is an Err" do
-    res = Err.new("oh no")
-    expect_raises(Exception){ res.unwrap}
+      res = Err.new("oh no")
+      expect_raises(Exception) { res.unwrap }
     end
   end
 

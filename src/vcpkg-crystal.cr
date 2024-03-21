@@ -1,4 +1,10 @@
+require "./error"
 require "./result"
+require "./library"
+
+require "./pcfile"
+require "./config"
+require "./port"
 require "log"
 
 # TODO: Write documentation for `Vcpkg::Crystal`
@@ -91,16 +97,15 @@ module Vcpkg
     File.exists? path / ".vcpkg-root"
   end
 
-  def self.find_vcpkg_target(cfg : Config, target_triplet : TargetTriplet)  : Ok(VcpkgTarget) | Err(VcpkgNotFound)
+  def self.find_vcpkg_target(cfg : Config, target_triplet : TargetTriplet) : Ok(VcpkgTarget) | Err(VcpkgNotFound)
     vcpkg_root_result = find_vcpkg_root(cfg)
     case vcpkg_root_result
     when Err
-       puts "returning err: typeof(vcpkg_root_result)"
-       return vcpkg_root_result
+      puts "returning err: typeof(vcpkg_root_result)"
+      return vcpkg_root_result
     when Ok
     end
     vcpkg_root = vcpkg_root_result.unwrap
-       
 
     base = if root = cfg.vcpkg_installed_root
              root
@@ -122,7 +127,7 @@ module Vcpkg
     include_path = new_base / "include"
     packages_path = vcpkg_root / "packages"
 
-    return Ok.new(VcpkgTarget.new(
+    Ok.new(VcpkgTarget.new(
       lib_path: lib_path,
       bin_path: bin_path,
       include_path: include_path,
@@ -182,128 +187,63 @@ module Vcpkg
     end
   end
 
-  # Configuration options for finding packages, setting up the tree and emitting metadata to cargo
-  class Config
-    # should the cargo metadata actually be emitted
-    property cargo_metadata : Bool = false
+  def self.load_ports(target : VcpkgTarget) : Hash(String, Port)
+    ports = {} of String => Port
+    port_info = [] of Hash(String, String)
 
-    # should cargo:include= metadata be emitted (defaults to false)
-    property emit_includes : Bool = false
+    # load the main status file
+    status_filename = target.status_path / "status"
+    load_port_file(status_filename, port_info)
 
-    # .lib/.a files that must be found for probing to be considered successful
-    property required_libs : Array(String) = [] of String
+    # load updates to the status file
+    status_update_dir = File.join(target.status_path, "updates")
+    paths = Dir.glob(File.join(status_update_dir, "*"))
+    paths.each { |path| load_port_file(path, port_info) }
 
-    # .dlls that must be found for probing to be considered successful
-    property required_dlls : Array(String) = [] of String
+    # Process port info
+    seen_names = {} of Tuple(String, String, String) => Hash(String, String)
+    port_info.each do |current|
+      name = current["Package"]
+      arch = current["Architecture"]
+      feature = current["Feature"]
 
-    # should DLLs be copied to OUT_DIR? property copy_dlls : Bool = false
-    property copy_dlls : Bool = false
-
-    # override vcpkg installed path, regardless of both VCPKG_ROOT/installed and VCPKG_INSTALLED_ROOT environment variables
-    property vcpkg_installed_root : Path? = nil
-
-    # override VCPKG_ROOT environment variable
-    property vcpkg_root : Path? = nil
-
-    property target : TargetTriplet? = nil
-
-    def initialize(@cargo_metadata = false, @emit_includes = false, @required_libs = [] of String, @required_dlls = [] of String, @copy_dlls = false, @vcpkg_installed_root : Path? = nil, @vcpkg_root : Path? = nil, @target : TargetTriplet? = nil)
-    end
-
-    # Deprecated in favor of the find_package function
-    def self.probe_package(name : String) : Result(Library, Error)
-      Config.new.probe(name)
-    end
-  end
-
-  # Details of a package that was found
-  class Library
-    # Paths for the linker to search for static or import libraries
-    property link_paths : Array(Path)
-    # Paths to search at runtme to find DLLs
-    property dll_paths : Array(Path)
-    # Paths to include files
-    property include_paths : Array(Path)
-    # cargo: metadata lines
-    property cargo_metadata : Array(String)
-    # libraries found are static
-    property is_static : Bool
-    # DLLs found
-    property found_dlls : Array(Path)
-    # static libs or import libs found
-    property found_libs : Array(Path)
-    # link name of libraries found, this is useful to emit linker commands
-    property found_names : Array(String)
-    # ports that are providing the libraries to link to, in port link order
-    property ports : Array(String)
-    # the vcpkg triplet that has been selected
-    property vcpkg_triplet : String
-
-    def initialize(@link_paths : Array(Path), @dll_paths : Array(Path), @include_paths : Array(Path), @cargo_metadata : Array(String), @is_static : Bool, @found_dlls : Array(Path), @found_libs : Array(Path), @found_names : Array(String), @ports : Array(String), @vcpkg_triplet : String)
-    end
-  end
-
-  struct TargetTriplet
-    getter triplet : String
-    getter is_static : Bool
-    getter lib_suffix : String
-    getter strip_lib_prefix : Bool
-
-    def self.from(triplet : String) : TargetTriplet
-      if triplet.contains?("windows")
-        is_static = triplet.contains?("-static")
-        new(triplet, is_static, "lib", false)
-      else
-        new(triplet, true, "a", true)
+      if name && arch
+        seen_names[{name, arch, feature}] = current
       end
     end
 
-    def initialize(@triplet : String, @is_static : Bool, @lib_suffix : String, @strip_lib_prefix : Bool)
-    end
-  end
-
-  # Paths and triple for chosen target
-  struct VcpkgTarget
-    property lib_path : Path
-    property bin_path : Path
-    property include_path : Path
-
-    # directory containing the status file
-    property status_path : Path
-    # directory containing the install files per port
-    property packages_path : Path
-
-    # target specific settings
-    property target_triplet : TargetTriplet
-
-    def initialize(@lib_path, @bin_path, @include_path, @status_path, @packages_path, @target_triplet)
-    end
-
-    def link_name_for_lib(filename : Path | String)
-      if target_triplet.strip_lib_prefix
-        filename.to_s
-      else
-        filename.to_s
+    seen_names.each do |(name, arch, feature), current|
+      if arch == target.target_triplet.triplet
+        if current["Status"].ends_with?(" installed")
+          version = current["Version"]
+          deps = current["Depends"].to_s.split(", ")
+          if version
+            begin
+              dlls, libs = load_port_manifest(target.status_path, name, version, target)
+              port = Port.new(dlls: dlls, libs: libs, deps: deps)
+              ports[name] = port
+            rescue e
+              puts "Error loading port manifest for #{name}: #{e.message}"
+            end
+          elsif feature
+            if ports.has_key?(name)
+              ports[name].deps += deps
+            else
+              puts "Found a feature that had no corresponding port :-"
+              puts "Current: #{current}"
+            end
+          else
+            puts "Didn't know how to deal with status file entry :-"
+            puts "#{current}"
+          end
+        end
       end
     end
-  end
 
-  # Aborted because of a `VCPKGRS_NO_*` environment variable.
-  #
-  # Contains the name of the responsible environment variable.
-  class Error < Exception
-    def initialize(msg)
-      super(msg)
-    end
-
-    def self.[](mess : String)
-      new(mess)
-    end
-  end
-
-  class VcpkgNotFound < Error
-  end
-
-  class NotMSVC < Error
+    ports
   end
 end
+
+# Aborted because of a `VCPKGRS_NO_*` environment variable.
+#
+# Contains the name of the responsible environment variable.
