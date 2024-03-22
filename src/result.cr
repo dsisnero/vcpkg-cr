@@ -1,32 +1,8 @@
 module Result
-  def self.new(value : T? = nil, error : E? = nil) : Ok(T) | Err(E) | Nil
-    if value && !error
-      self.ok(value)
-    elsif error && !value
-      self.err(error)
-    elsif value && error
-      raise "argument must be value | error, not both"
-    else
-      raise "must supply one of value | error"
-    end
-  end
-
-  def self.ok(value : T) : Ok(T)
-    Ok.new(value)
-  end
-
-  def self.err(error : E) : Err(E)
-    Err.new(error)
-  end
 end
 
-struct Ok(T)
+record Ok(T), value : T do
   include Result
-
-  getter value : T
-
-  def initialize(@value : T)
-  end
 
   def ok?
     true
@@ -48,8 +24,8 @@ struct Ok(T)
     self
   end
 
-  def map(&)
-    Ok.new(yield @value)
+  def map(&block : T -> U) forall U
+    Ok.new(block.call @value)
   end
 
   def map_err(&)
@@ -57,13 +33,8 @@ struct Ok(T)
   end
 end
 
-struct Err(E)
+record Err(E), error : E do
   include Result
-
-  getter error : E
-
-  def initialize(@error)
-  end
 
   def unwrap
     raise "Cannot unwrap an Err"

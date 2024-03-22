@@ -1,6 +1,6 @@
 module Vcpkg
   struct Port
-    Log = ::Log.for("port")
+    Log = ::Log.for(self)
     # dlls if any
     property dlls : Array(String) = [] of String
 
@@ -93,18 +93,18 @@ module Vcpkg
                 port = Port.new(dlls: dlls, libs: libs, deps: deps)
                 ports[name] = port
               rescue e
-                puts "Error loading port manifest for #{name}: #{e.message}"
+                Log.error { "Error loading port manifest for #{name}: #{e.message}" }
               end
             elsif feature
               if ports.has_key?(name)
                 ports[name].deps += deps
               else
-                puts "Found a feature that had no corresponding port :-"
-                puts "Current: #{current}"
+                Log.error { "Found a feature that had no corresponding port :-" }
+                Log.error { "Current: #{current}" }
               end
             else
-              puts "Didn't know how to deal with status file entry :-"
-              puts "#{current}"
+              Log.error { "Didn't know how to deal with status file entry :-" }
+              Log.error { "#{current}" }
             end
           end
         end

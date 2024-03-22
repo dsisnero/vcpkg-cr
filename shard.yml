@@ -5,9 +5,9 @@ authors:
   - dsisnero <dsisnero@gmail.com>
 
 targets:
-  vcpkg-crystal:
-    main: src/vcpkg-crystal.cr
+  vcpkg-find:
+    main: src/vcpkg_cli.cr
 
-crystal: '>= 1.11.2'
+crystal: ">= 1.11.2"
 
 license: MIT

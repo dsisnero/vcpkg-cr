@@ -1,5 +1,5 @@
 module Vcpkg
-  class Error < Exception
+  class VcpkgError < Exception
     def initialize(msg)
       super(msg)
     end
@@ -9,22 +9,29 @@ module Vcpkg
     end
   end
 
-  class VcpkgNotFound < Error
+  class VcpkgNotFound < VcpkgError
   end
 
-  class NotMSVC < Error
+  class NotMSVC < VcpkgError
   end
 
-  class VcpkgInstallation < Error
+  class VcpkgInstallation < VcpkgError
   end
 
-  class DisabledByEnv < Error
+  class DisabledByEnv < VcpkgError
     def initialize(env : String)
       mess = "Disabled by ENV variable #{env}"
       super(mess)
     end
   end
 
-  class LibNotFound < Error
+  class LibNotFound < VcpkgError
+  end
+
+  class RequiredEnvMissing < VcpkgError
+    def initialize(env : String)
+      mess = "Required env missing: #{env}"
+      super(mess)
+    end
   end
 end

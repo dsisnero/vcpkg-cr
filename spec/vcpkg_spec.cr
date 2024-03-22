@@ -7,7 +7,6 @@ describe Vcpkg do
     context "when VCPKG_ROOT environment variable is set" do
       it "returns the path specified in VCPKG_ROOT" do
         with_env({"VCPKG_ROOT" => "/path/to/vcpkg"}) do
-          Log.for("vcpkg").info { "about to call find_vcpkg_root" }
           config = Vcpkg::Config.new
           Vcpkg.find_vcpkg_root(config).should eq(Ok.new Path.new("/path/to/vcpkg"))
         end

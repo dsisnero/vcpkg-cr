@@ -6,7 +6,7 @@ describe Vcpkg::Config do
       config = Vcpkg::Config.new
 
       config.crystal_metadata.should be_true
-      config.copy_dlls.should be_true
+      config.copy_dlls?.should be_true
       config.emit_includes.should be_false
       config.vcpkg_installed_root.should be_nil
       config.vcpkg_root.should be_nil
@@ -40,7 +40,7 @@ describe Vcpkg::Config do
   it "allows setting and getting copy_dlls" do
     config = Vcpkg::Config.new
     config.copy_dlls = true
-    config.copy_dlls.should eq(true)
+    config.copy_dlls?.should eq(true)
   end
 
   it "allows setting and getting vcpkg_installed_root" do
@@ -69,10 +69,25 @@ describe Vcpkg::Config do
     end
   end
 
-  it "finds the package" do
-    ENV["OUT_DIR"] = OUTDIR.to_s
-    config = Vcpkg::Config.new
-    result = config.find_package("zlib")
-    puts result
+  describe "#find_package" do
+    it "finds the package" do
+      cfg = Vcpkg::Config.new
+      cfg.copy_dlls = false
+      result = cfg.find_package("zlib")
+      result.ok?.should be_true
+      result.should be_a(Ok(Vcpkg::Library))
+    end
+    context "when set via cmd line" do
+      it "workds correctly" do
+        ENV["TARGET"] = "x86_64-pc-windows-msvc"
+        ENV["VCPKGRS_DYNAMIC"]
+        cfg = Vcpkg::Config.new
+        cfg.copy_dlls = false
+        cfg.crystal_metadata = false
+        result = cfg.find_package("zlib")
+        result.ok?.should be_true
+        result.should be_a(Ok(Vcpkg::Library))
+      end
+    end
   end
 end

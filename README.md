@@ -25,6 +25,12 @@ require "vcpkg"
 
     Vcpkg.find_package("foo")
 ```
+Also includes a cmd line app
+
+`vcpkg find zlib -l dll`
+
+or
+`vcpkg-find zlib`
 
 ## Development
 

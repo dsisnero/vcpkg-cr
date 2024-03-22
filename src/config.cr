@@ -108,7 +108,10 @@
 # rust-openssl's openssl-sys was backward compatible when this crate originally released.
 #
 # This will likely get bumped by the next major release.
+
 module Vcpkg
+  alias Error = VcpkgNotFound | NotMSVC | VcpkgInstallation | DisabledByEnv | LibNotFound
+
   # Configuration options for finding packages, setting up the tree and emitting metadata to crystal
   class Config
     Log = ::Log.for(self)
@@ -125,7 +128,7 @@ module Vcpkg
     property required_dlls : Array(String) = [] of String
 
     # should DLLs be copied to OUT_DIR? property copy_dlls : Bool = false
-    property copy_dlls : Bool = true
+    property? copy_dlls : Bool = true
 
     # override vcpkg installed path, regardless of both VCPKG_ROOT/installed and VCPKG_INSTALLED_ROOT environment variables
     property vcpkg_installed_root : Path? = nil
@@ -139,18 +142,17 @@ module Vcpkg
     end
 
     # Define the get_target_triplet method
-    def get_target_triplet : Result
+    def get_target_triplet : Ok(TargetTriplet) | Err(NotMSVC)
       if @target.nil?
         target = if triplet_str = ENV["VCPKGRS_TRIPLET"]?
-                   Ok.new TargetTriplet.from(triplet_str)
+                   TargetTriplet.from(triplet_str)
                  else
-                   Vcpkg.detect_target_triplet
+                   try!(Vcpkg.detect_target_triplet)
                  end
-        return target if target.err?
-        @target = target.unwrap
+        @target = target.not_nil!
       end
 
-      Ok.new @target.dup
+      Ok.new target.not_nil!.dup
     end
 
     def envify(name : String)
@@ -158,11 +160,9 @@ module Vcpkg
     end
 
     # Define the find_package method
-    def find_package(port_name : String) : Result
+    def find_package(port_name : String)
       # Determine the target type
-      msvc_target = get_target_triplet
-      return msvc_target if msvc_target.err?
-      msvc_target = msvc_target.unwrap.not_nil!
+      msvc_target = try!(get_target_triplet)
 
       # Bail out if requested to not try at all
       if ENV["VCPKGRS_DISABLE"]?
@@ -186,15 +186,16 @@ module Vcpkg
         return Err.new(DisabledByEnv.new "#{abort_var_name}")
       end
 
-      vcpkg_target = Vcpkg.find_vcpkg_target(self, msvc_target).unwrap
+      vcpkg_target = try!(Vcpkg.find_vcpkg_target(self, msvc_target))
       required_port_order = [] of String
 
       if @required_libs.empty?
-        ports = Port.load_ports(vcpkg_target).unwrap
+        Log.debug { "loading ports for vcpkg_target #{vcpkg_target}" }
+        ports = try!(Port.load_ports(vcpkg_target))
 
-        Log.info { "ports loaded\n#{ports.join("\n")}" }
+        Log.debug { "ports loaded\n#{ports.join("\n")}" }
 
-        unless ports[port_name]
+        unless ports[port_name]?
           return Err.new(LibNotFound.new("LibNotFound package #{port_name} is not installed for vcpkg triplet #{vcpkg_target.target_triplet.triplet}"))
         end
 
@@ -242,7 +243,7 @@ module Vcpkg
       end
 
       if !vcpkg_target.target_triplet.is_static && !ENV["VCPKGRS_DYNAMIC"]?
-        return Err.new("RequiredEnvMissing VCPKGRS_DYNAMIC")
+        return Err.new(RequiredEnvMissing.new("VCPKGRS_DYNAMIC"))
       end
 
       rlib = Library.new(vcpkg_target.target_triplet.is_static, vcpkg_target.target_triplet.triplet)
@@ -262,21 +263,23 @@ module Vcpkg
 
       rlib.ports = required_port_order
 
-      did_emit = emit_libs(rlib, vcpkg_target)
-      return did_emit if did_emit.err?
+      _bogus = try!(emit_libs(rlib, vcpkg_target))
+      _bogus = nil
 
-      did_copy = do_dll_copy(rlib) if @copy_dlls
-      return Err.new(Error["Could not copy dlls"]) if did_copy.nil?
-      return did_copy if did_copy.err?
+      if copy_dlls?
+        bogus = try!(do_dll_copy(rlib))
+      end
+      # return did_copy if did_copy.err?
 
       if @crystal_metadata
         rlib.crystal_metadata.each { |line| puts line }
       end
+      Log.debug { "rlib type #{typeof(rlib)}" }
 
-      Ok.new(rlib)
+      Ok.new(rlib.as(Library))
     end
 
-    def emit_libs(rlib : Library, vcpkg_target : VcpkgTarget)
+    def emit_libs(rlib : Library, vcpkg_target : VcpkgTarget) : Ok(Int32) | Err(LibNotFound)
       self.required_libs.each do |required_lib|
         # Determine the link name based on whether the lib prefix should be stripped
         link_name = if vcpkg_target.target_triplet.strip_lib_prefix
@@ -308,28 +311,39 @@ module Vcpkg
         end
       end
 
-      Ok.new(Void)
+      Ok.new(0)
     end
 
-    def do_dll_copy(rlib : Library) : Result
+    def do_dll_copy(rlib : Library) : Ok(Int32) | Err(LibNotFound)
       if target_dir = ENV["OUT_DIR"]?
-        Dir.mkdir_p(target_dir)
         rlib.found_dlls.each do |file|
-          begin
-            dest_path = Path[target_dir] / file.basename
-            File.copy(file, dest_path)
-            puts "vcpkg build helper copied file #{file} to #{dest_path}"
-          rescue
-            return Err.new(LibNotFound.new("Can't copy file #{file} to #{dest_path}"))
-          end
+          dest_path = Path[target_dir] / file.basename
+          File.copy(file, dest_path)
+          puts "vcpkg build helper copied file #{file} to #{dest_path}"
         end
         rlib.crystal_metadata << "crystal:rustc-link-search=native=#{target_dir}"
         rlib.crystal_metadata << "crystal:rustc-link-search=#{target_dir}"
+        Ok.new(0)
       else
-        return Err.new(LibNotFound.new("Unable to get env OUT_DIR"))
+        Err.new(LibNotFound["Cannot copy dll unless env OUT_DIR is set"])
       end
-      Ok.new(Void)
-    rescue
+    rescue e
+      Log.error { "failed to copy dlls #{e}" }
+      Err.new(LibNotFound.new("Can't copy file to dest_path"))
+    end
+
+    def do_dll_copy2(rlib : Library) : Ok(Nil) | Err(LibNotFound)
+      return Err.new(LibNotFound["Cannot copy dll unless env OUT_DIR is set"]) unless ENV.has_key?("OUT_DIR")
+      target_dir = ENV["OUT_DIR"]
+      rlib.found_dlls.each do |file|
+        dest_path = Path[target_dir] / file.basename
+        File.copy(file, dest_path)
+        puts "vcpkg build helper copied file #{file} to #{dest_path}"
+      end
+      rlib.crystal_metadata << "crystal:rustc-link-search=native=#{target_dir}"
+      rlib.crystal_metadata << "crystal:rustc-link-search=#{target_dir}"
+      Ok.new(0)
+    rescue e
       Err.new(LibNotFound.new("Can't copy file to dest_path"))
     end
 

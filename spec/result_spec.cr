@@ -1,6 +1,9 @@
 require "./spec_helper"
 require "../src/result"
 
+alias StringResult = Ok(String) | Err(String)
+alias NumberString = Ok(Int32) | Err(String)
+
 class Example
   def identity(res : Result)
     res
